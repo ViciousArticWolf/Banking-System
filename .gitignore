@@ -1,0 +1,21 @@
+# Java compiled files
+*.class
+
+# Build output
+out/
+bin/
+target/
+build/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Old experiments / alternative versions
+/src/BankingSystemImproved.java
+/src/Mfe.java
+/src/ex1.java
