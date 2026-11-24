@@ -1,364 +1,404 @@
 
+
 import java.math.BigDecimal;
 import java.util.*;
+interface SubSystem{
 
-interface SubSystem {
-    default void withdraw(Account acc) {}
-    default void deposit(Account acc) {}
-    default void transfer(Account acc) {}
-    default void checkBalance(Account acc) {}
+    void run(Account account);
+//    default void withdraw(Account acc){
+//        System.out.println("Nothing to see here");
+//    }
+//    default void deposit(Account acc){}
+//    default void transfer(Account from){}
+//    default void checkBalance(Account acc){}
 }
-
-class Account {
-    int id;
-    String name;
-    double balance;
+class Account{
+    final int id;
+    final String name;
+    BigDecimal balance;
     String password;
-
-    Account(int id, String name, double balance, String password) {
+    final String secretword;
+    Account(int id, String name, BigDecimal balance, String password, String secretword){
         this.id = id;
         this.name = name;
         this.balance = balance;
         this.password = password;
+        this.secretword = secretword;
     }
 }
-
-class Withdraw implements SubSystem {
+class Withdraw implements SubSystem{
     @Override
-    public void withdraw(Account acc) {
+    public void run(Account acc) {
         System.out.println("Amount to be Withdrawn:");
-
-        int amount = BankingSystem.sc.nextInt();
-
-        if (amount <= 0) {
-            System.out.println("Invalid Amount!");
+        BigDecimal a = BankingSystem.getBigDecimal();
+        if(a.compareTo(BigDecimal.ZERO) <= 0){
+            System.out.println("Invalid Amount");
         }
-        else if (acc.balance < amount) {
+        else if (a.compareTo(acc.balance)>0) {
             System.out.println("Insufficient Balance!");
-        }
-        else {
-            acc.balance -= amount;
-            System.out.println("Withdrawal Successful!");
+            System.out.println("Current Balance: " + acc.balance);
+        } else {
+            acc.balance = acc.balance.subtract(a);
+            System.out.println("Withdraw Successful");
             System.out.println("Current Balance: " + acc.balance);
         }
     }
 }
-
-class Deposit implements SubSystem {
+class Deposit implements SubSystem{
     @Override
-    public void deposit(Account acc) {
-        System.out.println("Amount to be Deposited:");
+    public void run(Account acc) {
+        System.out.println("Amount to be Deposited");
+        BigDecimal amount = BankingSystem.getBigDecimal();
 
-        int amount = BankingSystem.sc.nextInt();
-
-        if (amount <= 0) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             System.out.println("Invalid Amount!");
-        }
-        else {
-            acc.balance += amount;
-            System.out.println("Deposit Successful!");
-            System.out.println("Current Balance: " + acc.balance);
+        } else {
+            acc.balance = acc.balance.add(amount);
+            System.out.println("Deposit Successful");
+            System.out.println("Current Balance: "+ acc.balance);
         }
     }
 }
-
-class Transfer implements SubSystem {
+class Transfer implements SubSystem{
     @Override
-    public void transfer(Account from) {
+
+    public void run(Account from) {
         System.out.println("Enter Account ID of Receiver:");
-
-        int id = BankingSystem.sc.nextInt();
-
-        if (!BankingSystem.accountExists(id)) {
-            System.out.println("Invalid or Deleted Account!");
+        int toId = BankingSystem.getInt();
+        Account to = BankingSystem.accounts.get(toId);
+        if (to == null) {
+            System.out.println(toId >= 0 && toId < BankingSystem.nextID
+                    ? "Account has been deleted!"
+                    : "Invalid Account ID!!");
             return;
         }
-
-        Account receiver = BankingSystem.accounts.get(id);
-
-        if (receiver.id == from.id) {
+        if (to.id == from.id) {
             System.out.println("Cannot transfer to the same account!");
             return;
         }
 
         System.out.println("Enter Amount to be transferred:");
-
-        int amount = BankingSystem.sc.nextInt();
-
-        if (amount <= 0) {
+        BigDecimal b = BankingSystem.getBigDecimal();
+        if (b.compareTo(BigDecimal.ZERO) <= 0) {
             System.out.println("Invalid Amount!");
-        }
-        else if (from.balance < amount) {
+        } else if (b.compareTo(from.balance) > 0) {
             System.out.println("Insufficient Balance!");
-        }
-        else {
-            from.balance -= amount;
-            receiver.balance += amount;
-
+            System.out.println("Current Balance: " + from.balance);
+        } else {
+            from.balance = from.balance.subtract(b);
+            to.balance = to.balance.add(b);
             System.out.println("Transfer Successful!");
-            System.out.println("Remaining Balance: " + from.balance);
+            System.out.println("Your Balance: " + from.balance);
         }
     }
 }
 
-class CheckBalance implements SubSystem {
+class CheckBalance implements SubSystem{
     @Override
-    public void checkBalance(Account acc) {
-        System.out.println("Current Balance: " + acc.balance);
+    public void run(Account acc) {
+        System.out.println("Current Balance: "+acc.balance);
     }
+}
+
+class InputEndedException extends RuntimeException {
 }
 
 public class BankingSystem {
-
-    static ArrayList<Account> accounts = new ArrayList<>();
-    static HashMap<Integer, String> credentials = new HashMap<>();
+    static final Map<Integer, Account> accounts = new HashMap<>();
     static Scanner sc = new Scanner(System.in);
-
+    static int nextID = 0;
     public static void main(String[] args) {
-
         System.out.println("Welcome to Adbhut Ghaplebaaz Bank!!");
-
-        choice();
-
+        try {
+            mainLoop();
+        } catch (InputEndedException e) {
+            System.out.println("\nInput ended. Closing the bank safely.");
+        }
         System.out.println("Thank You for using Adbhut Ghaplebaaz Bank!!");
     }
 
-    // Checks whether an account ID exists and is not deleted.
-    static boolean accountExists(int id) {
-        return id >= 0
-                && id < accounts.size()
-                && accounts.get(id) != null;
+    public static void mainLoop() {
+        while (true) {
+            System.out.println("Create Account: Press 1");
+            System.out.println("Switch Account: Press 2");
+            System.out.println("Delete Account: Press 3");
+            System.out.println("Show Accounts: Press 4");
+            System.out.println("To Exit:  Press 5");
+            int choice = getInt();
+            if (choice == 5) return;
+            handle(choice);
+        }
     }
 
-    // Account creation
-    static void createAccount() {
+    static void handle(int choice) {
+        switch (choice) {
+            case 1 -> createAccount();
+            case 2 -> switchAccount();
+            case 3 -> deleteAccount();
+            case 4 -> showAccounts();
+            default -> System.out.println("Invalid choice!");
+        }
+    }
 
+    static void createAccount(){
         System.out.println("Enter Account holder Name:");
-        String name = sc.next();
+        sc.nextLine();// Consume leftover newline from getInt()
+        String name;
+        while (true) {
+            if (!sc.hasNextLine()) {
+                throw new InputEndedException();
+            }
+
+            name = sc.nextLine();
+
+            if (!name.trim().isEmpty()) {
+                name = name.trim();
+                break;
+            }
+
+            System.out.println("Name cannot be empty. Enter again:");
+        }
 
         System.out.println("Enter Account Balance:");
-        double balance = sc.nextDouble();
-
-        if (balance < 0) {
-            System.out.println("Invalid Initial Balance!");
-            return;
+        BigDecimal balance;
+        while(true){
+            balance = getBigDecimal();
+            if(balance.compareTo(BigDecimal.ZERO) <= 0){
+                System.out.println("Invalid Balance!");
+            }
+            else{
+                break;
+            }
         }
 
-        System.out.println("Enter Password:");
-        String password = sc.next();
+        System.out.println("Enter Password:(Must be of at least 6 characters and must have at least one special character, one Upper Case and one Lower Case character and no spaces.");
 
-        int id = accounts.size();
+        String password = getPassword();
 
-        Account acc = new Account(id, name, balance, password);
-
-        accounts.add(acc);
-        credentials.put(id, password);
-
-        System.out.println("Account Created Successfully!");
-        System.out.println("Your Account ID is: " + id);
-    }
-
-    // Credential verification
-    static boolean checkCredentials(int id, String password) {
-
-        return credentials.containsKey(id)
-                && password.equals(credentials.get(id));
-    }
-
-    // Authentication with retry, forgot password and cancel options.
-    static boolean authenticate(int id) {
-
-        if (!accountExists(id)) {
-            System.out.println("Account doesn't exist!");
-            return false;
-        }
-
+        System.out.println("Enter a secret word that you will remember:");
+        String secretword;
         while (true) {
-
-            System.out.println("Enter Password:");
-            String password = sc.next();
-
-            if (checkCredentials(id, password)) {
-                return true;
+            if (!sc.hasNext()) {
+                throw new InputEndedException();
             }
-
-            System.out.println("Wrong Credentials");
-            System.out.println("Retry: Press 1");
-            System.out.println("Forgot Password: Press 2");
-            System.out.println("Cancel: Press 3");
-
-            int choice = sc.nextInt();
-
-            switch (choice) {
-                case 1:
-                    continue;
-
-                case 2:
-                    forgotPassword();
-                    return false;
-
-                case 3:
-                    return false;
-
-                default:
-                    System.out.println("Invalid Choice!");
-                    return false;
+            secretword = sc.next();
+            if(!secretword.trim().isEmpty()){
+                break;
             }
         }
+
+        int id = nextID;
+        Account a = new Account(id, name, balance, password, secretword);
+        accounts.put(id,a);
+        System.out.println("Your account ID is:"+id);
+        nextID++;
+        //choice();
     }
 
-    // Login into existing account
-    static void switchAccount() {
+//    static int getInt(){
+//        while(!sc.hasNextInt()){
+//            System.out.println("Invalid Input!");
+//            sc.next();
+//        }
+//        return sc.nextInt();
+//    }
 
-        if (accounts.isEmpty()) {
-            System.out.println("No Accounts registered yet!");
-            return;
-        }
+    static int getInt() {
+        while (true) {
+            if (!sc.hasNext()) {
+                throw new InputEndedException();
+            }
 
-        System.out.println("Enter Account holder ID:");
-        int id = sc.nextInt();
+            if (sc.hasNextInt()) {
+                return sc.nextInt();
+            }
 
-        if (!accountExists(id)) {
-            System.out.println("Account doesn't exist or has been deleted!");
-            return;
-        }
-
-        if (authenticate(id)) {
-            proceed(id);
-        }
-    }
-
-    // Delete account
-    static void deleteAccount() {
-
-        if (accounts.isEmpty()) {
-            System.out.println("No Accounts registered yet!");
-            return;
-        }
-
-        System.out.println("Enter Account ID:");
-        int id = sc.nextInt();
-
-        if (!accountExists(id)) {
-            System.out.println("Account doesn't exist or has been deleted!");
-            return;
-        }
-
-        if (authenticate(id)) {
-            accounts.set(id, null);
-            credentials.remove(id);
-
-            System.out.println("Account Deleted Successfully!");
+            System.out.println("Invalid Input!");
+            sc.next();
         }
     }
 
-    // Display all accounts
-    static void showAccounts() {
 
+//    static BigDecimal getBigDecimal(){
+//        while(!sc.hasNextBigDecimal()){
+//            System.out.println("Invalid Input!");
+//            sc.next();
+//        }
+//        return sc.nextBigDecimal();
+//    }
+
+    static BigDecimal getBigDecimal() {
+        while (true) {
+            if (!sc.hasNext()) {
+                throw new InputEndedException();
+            }
+            if (sc.hasNextBigDecimal()) {
+                return sc.nextBigDecimal();
+            }
+            System.out.println("Invalid Input!");
+            sc.next();
+        }
+    }
+
+    static void switchAccount(){
+        Account a = login();
+        if (a != null) {
+            proceed(a);
+        }
+    }
+
+    static void deleteAccount(){
+        Account a = login();
+        if(a!=null){
+            accounts.remove(a.id);
+            System.out.println("Your account with ID "+a.id+" has been deleted!");
+        }
+    }
+
+    static Account login() {
+        if(!accounts.isEmpty()){
+            while (true) {
+                System.out.println("Enter Account ID:");
+                int id = getInt();
+                if(accounts.containsKey(id)){
+                    System.out.println("Enter Password:");
+                    if (!sc.hasNext()) {
+                        throw new InputEndedException();
+                    }
+                    String password = sc.next();
+                    Account a = accounts.get(id);
+                    if (a.password.equals(password)) {
+                        return a;
+                    }
+                    else  {
+                        System.out.println("Wrong Credentials");
+                        System.out.println("Press 1 to retry");
+                        System.out.println("Press 2 to change password");
+                        System.out.println("Press 3 to exit");
+                        int choice = getInt();
+                        switch (choice) {
+                            case 1 -> {
+                                continue;
+                            }
+                            case 2 -> forgotPassword(id);
+                            case 3 -> {
+                                return  null;
+                            }
+                            default -> System.out.println("Invalid Choice! Press 1,2 or 3.");
+                        }
+                    }
+                }
+                else {
+                    System.out.println(id >= 0 && id < nextID
+                            ? "Account has been deleted!!"
+                            : "Account doesnt exist!!");
+                    System.out.println("Press 1 to retry");
+                    System.out.println("Press 2 to exit");
+                    int choice = getInt();
+                    switch (choice) {
+                        case 1 -> {}
+                        case 2 -> {return null;}
+                        default -> System.out.println("Invalid Choice! Press 1 or 2");
+                    }
+                }
+
+            }
+        }
+        System.out.println("No Accounts registered yet");
+        return null;
+    }
+
+
+    static void showAccounts(){
         System.out.println("Accounts:");
-
-        for (Account acc : accounts) {
-
-            if (acc == null) {
-                System.out.println("Deleted Account");
-            }
-            else {
-                System.out.println(
-                        acc.id + " " +
-                                acc.name + " " +
-                                acc.balance + " " +
-                                acc.password
-                );
+        for (int id = 0; id < nextID; id++) {
+            Account a = accounts.get(id);
+            if (a == null) {
+                System.out.println("Account ID " + id + " - Deleted");
+            } else {
+                System.out.println(a.id + " " + a.name + " " + a.balance);//" " + a.password
             }
         }
-
         System.out.println("Size: " + accounts.size());
+
     }
 
-    // Operations after successful login
-    static void proceed(int id) {
-
-        Account acc = accounts.get(id);
-
+    static void proceed(Account acc) {
         while (true) {
-
-            System.out.println("\nCheck Balance: Press 1");
+            System.out.println("Check Balance: Press 1");
             System.out.println("Deposit: Press 2");
             System.out.println("Withdraw: Press 3");
             System.out.println("Transfer: Press 4");
             System.out.println("Exit: Press 5");
-
-            int choice = sc.nextInt();
-
-            switch (choice) {
-
-                case 1:
-                    new CheckBalance().checkBalance(acc);
-                    break;
-
-                case 2:
-                    new Deposit().deposit(acc);
-                    break;
-
-                case 3:
-                    new Withdraw().withdraw(acc);
-                    break;
-
-                case 4:
-                    new Transfer().transfer(acc);
-                    break;
-
-                case 5:
-                    return;
-
-                default:
-                    System.out.println("Invalid Choice!");
+            SubSystem s;
+            switch (getInt()) {
+                case 1 -> s = new CheckBalance();
+                case 2 -> s = new Deposit();
+                case 3 -> s = new Withdraw();
+                case 4 -> s = new Transfer();
+                case 5 -> { return; }
+                default -> { System.out.println("Invalid choice!"); continue; }
             }
+            s.run(acc);
         }
     }
-
-    // Forgot password placeholder
-    static void forgotPassword() {
-        System.out.println("Fuck Off!!");
-    }
-
-    // Main navigation menu
-    static void choice() {
-
+    static String getPassword() {
         while (true) {
+            if (!sc.hasNext()) {
+                throw new InputEndedException();
+            }
+            String pwd = sc.next();
+            if (pwd.length() < 6) {
+                System.out.println("Password should be at least 6 characters!");
+                continue;
+            }
+            if (pwd.matches(".*\\s+.*")) {
+                System.out.println("Password should not contain spaces!");
+                continue;
+            }
+            if (!pwd.matches(".*[A-Z].*")) {
+                System.out.println("Password should contain at least one uppercase letter!");
+                continue;
+            }
 
-            System.out.println("\nCreate Account: Press 1");
-            System.out.println("Switch Account: Press 2");
-            System.out.println("Delete Account: Press 3");
-            System.out.println("Show Accounts: Press 4");
-            System.out.println("To Exit: Press 5");
-
-            int choice = sc.nextInt();
-
-            switch (choice) {
-
-                case 1:
-                    createAccount();
-                    break;
-
-                case 2:
-                    switchAccount();
-                    break;
-
-                case 3:
-                    deleteAccount();
-                    break;
-
-                case 4:
-                    showAccounts();
-                    break;
-
-                case 5:
-                    return;
-
-                default:
-                    System.out.println("Invalid Choice!");
+            if (!pwd.matches(".*[a-z].*")) {
+                System.out.println("Password should contain at least one lowercase letter!");
+                continue;
+            }
+            if (!pwd.matches(".*[^a-zA-Z0-9].*")) {
+                System.out.println("Password must contain at least one special character!");
+                continue;
+            }
+            else {
+                return pwd;
             }
         }
+
+    }
+    static void forgotPassword(int id) {
+        Account a = accounts.get(id);
+        boolean auth = Authenticate(a);
+        if (auth) {
+            System.out.println("Enter new Password:");
+            a.password = getPassword();
+            System.out.println("Password has been changed for account with ID:"+ a.id);
+        }
+        else{
+            System.out.println("Sorry, Cant help you!");
+            System.out.println("Please visit the bank for further assistance.");
+        }
+    }
+    static boolean Authenticate(Account a) {
+        System.out.println("Enter the secretword associated with the account:");
+        if (!sc.hasNext()) {
+            throw new InputEndedException();
+        }
+        String auth = sc.next();
+        return a.secretword.equals(auth);
     }
 }
+
+
+
+
+
